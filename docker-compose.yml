@@ -1,0 +1,73 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: ./docker/dev/Dockerfile
+    image: fibo-host-api
+    container_name: fibo-host-api
+    restart: unless-stopped
+    working_dir: /var/www/html
+    ports:
+      - 32769:80
+    #env_file:
+    #  - .env
+    volumes:
+      - .:/var/www/html
+      # Exclude vendor directory to prevent conflicts
+      - /var/www/html/vendor
+      - ./docker/apache/default.conf:/etc/apache2/sites-available/000-default.conf
+      - ./storage:/var/www/html/storage
+    networks:
+      - fibo-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - AWS_SUPPRESS_PHP_DEPRECATION_WARNING=true
+      - TZ=UTC
+      - AUTH_GUARD=api
+      - OTP_MAX_ATTEMPTS=5
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=fibo_host_api
+      - DB_USERNAME=fibo_user
+      - DB_PASSWORD=fibo@123
+      - APP_URL=https://api.fibodo.com
+      - FRONTEND_URL=https://preview.fibodo.com
+  db:
+    container_name: fibo-db
+    image: postgres:latest
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgresql/data # persist data
+    environment:
+      POSTGRES_DB: fibo_host_api
+      POSTGRES_USER: fibo_user
+      POSTGRES_PASSWORD: fibo@123
+    ports:
+      - "54322:5432"
+    networks:
+      - fibo-network
+  redis:
+    image: docker.io/bitnami/redis:6.2
+    container_name: fibo-redis
+    environment:
+      - ALLOW_EMPTY_PASSWORD=true
+    volumes:
+      - "redis_data:/bitnami/redis/data"
+    ports:
+      - "6310:6379"
+    networks:
+      - fibo-network
+
+networks:
+  fibo-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  db_data:
+    driver: local
+  redis_data:
+    driver: local
